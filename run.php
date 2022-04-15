@@ -129,6 +129,7 @@ if ($results->num_rows > 0) {
                       "NULL," .
                       ($r["service_body_bigint"] + $service_bodies_max_id) . "," .
                       $r["weekday_tinyint"] . "," .
+                      (empty($r["venue_type"]) ? "NULL" : $r["venue_type"]) . "," .
                       "'" . $r["start_time"] . "'," .
                       "'" . $r["duration_time"] . "'," .
                       "'" . $r["time_zone"] . "'," .
