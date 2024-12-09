@@ -13,6 +13,9 @@ $target_mysql_db = "target";
 $target_mysql_port = 3306;
 $target_table_prefix = "sezf1_";
 
+// set $relaxed_format_compare to true to compare formats for equality based only on the lang_enum and name_string
+$relaxed_format_compare = false;
+
 $source_conn = new mysqli($source_mysql_server, $source_mysql_username, $source_mysql_password, $source_mysql_db, $source_mysql_port);
 if ($source_conn->connect_error) {
     die("Source connection failed: " . $source_conn->connect_error);
@@ -53,7 +56,7 @@ function getAllTargetData($table_suffix) {
 }
 
 function resetMergeTable($table_suffix) {
-    $delete_table_sql = "DROP TABLE lettuce_merge_" . $table_suffix;
+    $delete_table_sql = "DROP TABLE IF EXISTS lettuce_merge_" . $table_suffix;
     executeSourceDbQuery($delete_table_sql);
 }
 
@@ -110,16 +113,17 @@ function executeTargetDbQuery($query) {
 }
 
 function formatExists($target_formats, $format_data) {
+    global $relaxed_format_compare;
     $target_formats->data_seek(0);
     if ($target_formats->num_rows > 0) {
         // output data of each row
         while ( $r = $target_formats->fetch_assoc() ) {
-            if ($format_data['key_string'] == $r['key_string'] &&
-                $format_data['worldid_mixed'] == $r['worldid_mixed'] &&
-                $format_data['lang_enum'] == $r['lang_enum'] &&
+            if ($format_data['lang_enum'] == $r['lang_enum'] &&
                 $format_data['name_string'] == $r['name_string'] &&
-                $format_data['description_string'] == $r['description_string'] &&
-                $format_data['format_type_enum'] == $r['format_type_enum']) {
+                ($relaxed_format_compare || $format_data['key_string'] == $r['key_string']) &&
+                ($relaxed_format_compare || $format_data['worldid_mixed'] == $r['worldid_mixed']) &&
+                ($relaxed_format_compare || $format_data['description_string'] == $r['description_string']) &&
+                ($relaxed_format_compare || $format_data['format_type_enum'] == $r['format_type_enum'])) {
                 return $r['shared_id_bigint'];
             }
         }

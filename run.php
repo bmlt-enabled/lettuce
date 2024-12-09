@@ -49,6 +49,8 @@ if ($result->num_rows > 0) {
     while($r = $result->fetch_assoc()) {
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
                       ($r["id_bigint"] + $service_bodies_max_id) . "," .
+                      "NULL," .
+                      "NULL," .
                       "'" . $GLOBALS['target_conn']->escape_string($r["name_string"]) . "'," .
                       "'" . $GLOBALS['target_conn']->escape_string($r["description_string"]) . "'," .
                       "'" . $r["lang_enum"] . "'," .
@@ -77,7 +79,8 @@ if ($final_count == ($source_count + $target_count)) {
 ###formats
 $table_suffix = 'formats';
 resetMergeTable($table_suffix);
-$formats_max_id = getTargetMaxId($table_suffix, 'shared_id_bigint');
+$formats_max_id = getTargetMaxId($table_suffix, 'id');
+$formats_max_shared_id = getTargetMaxId($table_suffix, 'shared_id_bigint');
 $source_formats = getAllSourceData($table_suffix);
 $target_formats = getAllTargetData($table_suffix);
 $source_count = getSourceTableCounts($table_suffix);
@@ -91,9 +94,12 @@ if ($source_formats->num_rows > 0) {
         $notes = "exact match";
         if ($formatId == 0) {
             $notes = "unique format";
-            $formatId = $r["shared_id_bigint"] + $formats_max_id;
+            $formatId = $r["shared_id_bigint"] + $formats_max_shared_id;
             $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
-                          ($r["shared_id_bigint"] + $formats_max_id) . "," .
+                          ($r["id"] + $formats_max_id) . "," .
+                          ($r["shared_id_bigint"] + $formats_max_shared_id) . "," .
+                          "NULL," .
+                          "NULL," .
                           "'" . $r["key_string"] . "'," .
                           "NULL," .
                           "'" . $r["worldid_mixed"] . "'," .
@@ -125,6 +131,8 @@ if ($results->num_rows > 0) {
         $new_formats = getNewFormats($r["formats"]);
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
                       ($r["id_bigint"] + $meetings_main_max_id) . "," .
+                      "NULL," .
+                      "NULL," .
                       "'" . $r["worldid_mixed"] . "'," .
                       "NULL," .
                       ($r["service_body_bigint"] + $service_bodies_max_id) . "," .
@@ -154,6 +162,7 @@ if ($final_count == ($source_count + $target_count)) {
 
 ###meetings data
 $table_suffix = 'meetings_data';
+$meetings_data_max_id = getTargetMaxId($table_suffix, 'id');
 #don't insert the data type stubs, will use the ones from the target
 $result = getAllSourceData($table_suffix . " WHERE meetingid_bigint <> 0");
 $source_count = getSourceTableCounts($table_suffix . " WHERE meetingid_bigint <> 0");
@@ -163,6 +172,7 @@ if ($result->num_rows > 0) {
     // output data of each row
     while($r = $result->fetch_assoc()) {
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
+                      ($r["id"] + $meetings_data_max_id) . "," .
                       ($r["meetingid_bigint"] + $meetings_main_max_id) . "," .
                       "'" . $r["key"] . "'," .
                       "'" . $r["field_prompt"] . "'," .
@@ -177,8 +187,9 @@ if ($result->num_rows > 0) {
     echo "0 results";
 }
 
-###meetings data
+###meetings longdata
 $table_suffix = 'meetings_longdata';
+$meetings_longdata_max_id = getTargetMaxId($table_suffix, 'id');
 #don't insert the data type stubs, will use the ones from the target
 $result = getAllSourceData($table_suffix . " WHERE meetingid_bigint <> 0");
 $source_count = getSourceTableCounts($table_suffix . " WHERE meetingid_bigint <> 0");
@@ -188,6 +199,7 @@ if ($result->num_rows > 0) {
     // output data of each row
     while($r = $result->fetch_assoc()) {
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
+            ($r["id"] + $meetings_longdata_max_id) . "," .
             ($r["meetingid_bigint"] + $meetings_main_max_id) . "," .
             "'" . $r["key"] . "'," .
             "'" . $r["field_prompt"] . "'," .
