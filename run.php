@@ -15,14 +15,14 @@ if ($result->num_rows > 0) {
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
                       ($r["id_bigint"] + $users_max_id) . "," .
                       $r["user_level_tinyint"] . "," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["name_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["description_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["email_address_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["login_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["password_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["last_access_datetime"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["lang_enum"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["owner_id_bigint"]) . "')";
+                      "'" . esc($r["name_string"]) . "'," .
+                      "'" . esc($r["description_string"]) . "'," .
+                      "'" . esc($r["email_address_string"]) . "'," .
+                      "'" . esc($r["login_string"]) . "'," .
+                      "'" . esc($r["password_string"]) . "'," .
+                      "'" . esc($r["last_access_datetime"]) . "'," .
+                      "'" . esc($r["lang_enum"]) . "'," .
+                      "'" . esc($r["owner_id_bigint"]) . "')";
         $insert_result = executeTargetDbQuery($insert_sql);
     }
 } else {
@@ -51,18 +51,19 @@ if ($result->num_rows > 0) {
                       ($r["id_bigint"] + $service_bodies_max_id) . "," .
                       "NULL," .
                       "NULL," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["name_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["description_string"]) . "'," .
+                      "'" . esc($r["name_string"]) . "'," .
+                      "'" . esc($r["description_string"]) . "'," .
                       "'" . $r["lang_enum"] . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["worldid_mixed"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["kml_file_uri_string"]) . "'," .
+                      "'" . esc($r["worldid_mixed"]) . "'," .
+                      "'" . esc($r["kml_file_uri_string"]) . "'," .
                       ($r["principal_user_bigint"] + $users_max_id) . "," .
                       "'" . getNewUsers($r["editors_string"], $users_max_id) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["uri_string"]) . "'," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["sb_type"]) . "'," .
+                      "'" . esc($r["uri_string"]) . "'," .
+                      "NULL," .
+                      "'" . esc($r["sb_type"]) . "'," .
                       ($r["sb_owner"] > 0 ? $r["sb_owner"] + $service_bodies_max_id : $new_top_level_id) . "," .
                       $r["sb_owner_2"] . "," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["sb_meeting_email"]) . "')";
+                      "'" . esc($r["sb_meeting_email"]) . "')";
         $insert_result = executeTargetDbQuery($insert_sql);
     }
 } else {
@@ -77,46 +78,7 @@ if ($final_count == ($source_count + $target_count)) {
 }
 
 ###formats
-$table_suffix = 'formats';
-resetMergeTable($table_suffix);
-$formats_max_id = getTargetMaxId($table_suffix, 'id');
-$formats_max_shared_id = getTargetMaxId($table_suffix, 'shared_id_bigint');
-$source_formats = getAllSourceData($table_suffix);
-$target_formats = getAllTargetData($table_suffix);
-$source_count = getSourceTableCounts($table_suffix);
-$target_count = getTargetTableCounts($table_suffix);
-createMergeTable($table_suffix);
-
-if ($source_formats->num_rows > 0) {
-    // output data of each row
-    while ( $r = $source_formats->fetch_assoc() ) {
-        $formatId = formatExists($target_formats, $r);
-        $notes = "exact match";
-        if ($formatId == 0) {
-            $notes = "unique format";
-            $formatId = $r["shared_id_bigint"] + $formats_max_shared_id;
-            $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
-                          ($r["id"] + $formats_max_id) . "," .
-                          ($r["shared_id_bigint"] + $formats_max_shared_id) . "," .
-                          "NULL," .
-                          "NULL," .
-                          "'" . $r["key_string"] . "'," .
-                          "NULL," .
-                          "'" . $r["worldid_mixed"] . "'," .
-                          "'" . $r["lang_enum"] . "'," .
-                          "'" . $GLOBALS['target_conn']->escape_string($r["name_string"]) . "'," .
-                          "'" . $GLOBALS['target_conn']->escape_string($r["description_string"]) . "'," .
-                          "'" . $r["format_type_enum"] . "')";
-            $insert_result = executeTargetDbQuery($insert_sql);
-        }
-
-        if ($r["lang_enum"] == "en") {
-            insertIntoMergeTable($table_suffix, $r['shared_id_bigint'], $formatId, $notes);
-        }
-    }
-} else {
-    echo "0 results";
-}
+$oldFormatIdToNewFormatId = reconcileFormats();
 
 ### meetings
 $table_suffix = 'meetings_main';
@@ -128,7 +90,19 @@ $target_count = getTargetTableCounts($table_suffix);
 if ($results->num_rows > 0) {
     // output data of each row
     while($r = $results->fetch_assoc()) {
-        $new_formats = getNewFormats($r["formats"]);
+        $new_formats = array();
+        if ($r["formats"]) {
+            $old_formats = explode(",", $r["formats"]);
+            foreach ($old_formats as $format_id) {
+                if (!array_key_exists($format_id, $oldFormatIdToNewFormatId)) {
+                    echo "Error: Unknown format found";
+                    die();
+                }
+                $new_format_id = $oldFormatIdToNewFormatId[$format_id];
+                array_push($new_formats, $new_format_id);
+            }
+        }
+        $new_formats = implode(",", array_unique($new_formats));
         $insert_sql = "INSERT INTO " . $target_table_prefix . "comdef_" . $table_suffix . " VALUES (" .
                       ($r["id_bigint"] + $meetings_main_max_id) . "," .
                       "NULL," .
@@ -146,7 +120,7 @@ if ($results->num_rows > 0) {
                       $r["longitude"] . "," .
                       $r["latitude"] . "," .
                       $r["published"] . "," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["email_contact"]) . "')";
+                      "'" . esc($r["email_contact"]) . "')";
         $insert_result = executeTargetDbQuery($insert_sql);
     }
 } else {
@@ -178,7 +152,7 @@ if ($result->num_rows > 0) {
                       "'" . $r["field_prompt"] . "'," .
                       "'" . $r["lang_enum"] . "'," .
                       (is_null($r["visibility"]) ? 0 : $r["visibility"]) . "," .
-                      "'" . $GLOBALS['target_conn']->escape_string($r["data_string"]) . "'," .
+                      "'" . esc($r["data_string"]) . "'," .
                       "NULL,NULL)";
         $insert_result = executeTargetDbQuery($insert_sql);
 
@@ -205,8 +179,7 @@ if ($result->num_rows > 0) {
             "'" . $r["field_prompt"] . "'," .
             "'" . $r["lang_enum"] . "'," .
             (is_null($r["visibility"]) ? 0 : $r["visibility"]) . "," .
-            "'" . $GLOBALS['target_conn']->escape_string($r["data_longtext"]) . "'," .
-            "'" . $GLOBALS['target_conn']->escape_string($r["data_blob"]) . "')";
+            "'" . esc($r["data_blob"]) . "')";
         $insert_result = executeTargetDbQuery($insert_sql);
 
     }
